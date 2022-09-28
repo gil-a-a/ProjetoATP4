@@ -33,9 +33,6 @@ int main() {
 	=ver oq for preciso			=
 	=>Terminar					=
 	=>Apresentar				=
-	=>Abrir o gta e tirar racha =
-	=com Os Cara				=
-	=>Tirar esses comentários 	=
 	=============================
 	*/
 	
