@@ -4,8 +4,8 @@
 
 typedef struct s_livro {
     char isbn[14];
-    char titulo[50];
-    char autor[50];
+    char titulo[51];
+    char autor[51];
     char ano[5];
 }LIVRO;
 
