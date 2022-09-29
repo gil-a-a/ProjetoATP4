@@ -17,24 +17,12 @@ int tamanhoRegistro(LIVRO reg);
 void removeRegistro(char **dados);
 void insereRegistro(LIVRO *dados);
 void compactacao();
+void freeDados_remocao(char **dados);
 
 int main() {
 	int opcao;
 	LIVRO* dados_insercao = carregaInsercao();
 	char** dados_remocao = carregaRemocao();
-	/*
-	=============================
-	= Coisas pra fazer dps:		=
-	=>Retornar o ponteiro dos ar=
-	= quivos de entrada, pq aí n=
-	= precisa ficar abrindo e fe=
-	= chando os arqs			=
-	=>Ler os comentários e resol=
-	=ver oq for preciso			=
-	=>Terminar					=
-	=>Apresentar				=
-	=============================
-	*/
 	
 	do {
 		printaMenu();
@@ -66,17 +54,10 @@ int main() {
 	}while(opcao != 0);
 	
 	free(dados_insercao);
-	//dar free no dados_remocao
+	freeDados_remocao(dados_remocao);
 
 	return 0;
 }
-
-/*
-char fragmentacao[sizeof(LIVRO) - tamanhoRegistro(reg)];
-	for (i = 0; i < sizeof(LIVRO) - tamanhoRegistro(reg)-1; i++) {
-		fragmentacao[i] = '@';
-	}
-*/
 
 void printaMenu()
 {
@@ -183,7 +164,7 @@ void removeRegistro(char **dados) {
 		rewind(in);
 	}
 	
-	//dps dar free em tudo q precisar e já era
+	free(isbn);
 	
 	printf("ISBN nao encontrado!\n");
 
@@ -236,30 +217,26 @@ void insereRegistro(LIVRO *dados) {
 	fread(&anterior, sizeof(int), 1, out);
 	prox = anterior;
 
-	int aux2;
 	while(prox != -1) {
 		fseek(out, prox, SEEK_SET);
 		fread(&tamanhoDisponivel, sizeof(int), 1, out);
-		printf("proximo: %d\n", prox);
-		printf("anterior: %d\n", anterior);
 		
 		if (tamanhoDisponivel >= tam) {
 			
 			fseek(out, 1, SEEK_CUR); //pulo o @
-			printf("ftell: %d\n", ftell(out));
 			fread(&prox, sizeof(int), 1, out); //leio o proximo
 
-			fseek(out, -(2 * sizeof(int) + 1), SEEK_CUR); //volto pra posicao do tamanho do registro
+			fseek(out, -(2*4 + 1), SEEK_CUR); //volto pra posicao do tamanho do registro	//Antes era -(2*sizeof(int) + 1)
 			fwrite(&tam, sizeof(int), 1, out); //escreve tamanho
 			fwrite(buffer, sizeof(buffer), 1, out); //escreve registro
 
 			rewind(out);
 			fseek(out, sizeof(int), SEEK_CUR); //volta pro topo da pilha
-			printf("prox: %d\n", prox);
 			
-			aux2 = prox;
-			fwrite(&aux2, sizeof(int), 1, out); //sobrescrevo apontando pro proximo da "pilha"
+			fwrite(&prox, sizeof(int), 1, out); //sobrescrevo apontando pro proximo da "pilha"
 			printf("Registro inserido!\n");
+			fclose(out);	//fecha o arquivo
+			
 			return;
 		} else {
 			anterior = prox; 
@@ -296,18 +273,16 @@ void compactacao() {
 	fread(&aux, sizeof(int), 1, in); //le o numero de registros inseridos
 	fwrite(&aux, sizeof(int), 1, out); 
 	
-	aux = -1;	//tirei a linha de baixo, pq dps de compactar o arquivo, ficava sobrando o index antigo da lista de remoção
-	//fread(&aux, sizeof(int), 1, in); //le o index do primeiro registro deletado
-	fseek(in, sizeof(int), SEEK_CUR);	//pula o index do in
+	aux = -1;
+	fseek(in, sizeof(int), SEEK_CUR);	//pula o offset do in
 	fwrite(&aux, sizeof(int), 1, out);
 	/* **************************************** */
 
 	char c;
 	char *buffer;
-
 	
 	while(fread(&aux, sizeof(int), 1, in)) {
-		buffer = malloc(sizeof(char)*aux);	//char buffer[aux];
+		buffer = malloc(sizeof(char)*aux);
 		if (fread(&c, sizeof(char), 1, in) && c != '@') {
 			fseek(in, -1, SEEK_CUR);	//essa linha tava como "fseek(in, -sizeof(char), SEEK_CUR);", só mudei o -sizeof(char) pq meu compilador deu warning aí
 			fread(buffer, sizeof(char), aux, in);
@@ -327,4 +302,13 @@ void compactacao() {
 	printf("Arquivo compactado!\n");
 	
 	return;
+}
+
+void freeDados_remocao(char **dados)
+{
+	int i;
+	
+	for (i = 0; i < 4; i++)
+		free(dados[i]);
+	free(dados);
 }
