@@ -9,26 +9,19 @@ typedef struct s_livro {
     char ano[5];
 }LIVRO;
 
-void printaMenu()
-{
-	printf("=======================\n");
-	printf("> 1. Insere registro  <\n");
-	printf("> 2. Remove registro  <\n");
-	printf("> 3. Compacta         <\n");
-	printf("> Opcao: ");
-	
-}
+void printaMenu();
 LIVRO* carregaInsercao();
 char** carregaRemocao();
 void printaRegistro(LIVRO *vet);
 int tamanhoRegistro(LIVRO reg);
-void removeRegistro();
-void insereRegistro();
+void removeRegistro(char **dados);
+void insereRegistro(LIVRO *dados);
 void compactacao();
 
 int main() {
 	int opcao;
-	
+	LIVRO* dados_insercao = carregaInsercao();
+	char** dados_remocao = carregaRemocao();
 	/*
 	=============================
 	= Coisas pra fazer dps:		=
@@ -51,11 +44,11 @@ int main() {
 		switch (opcao)
 		{
 		case 1:
-			insereRegistro();
+			insereRegistro(dados_insercao);
 			break;
 
 		case 2:
-			removeRegistro();
+			removeRegistro(dados_remocao);
 			break;
 
 		case 3:
@@ -72,6 +65,9 @@ int main() {
 		}
 	}while(opcao != 0);
 	
+	free(dados_insercao);
+	//dar free no dados_remocao
+
 	return 0;
 }
 
@@ -81,6 +77,16 @@ char fragmentacao[sizeof(LIVRO) - tamanhoRegistro(reg)];
 		fragmentacao[i] = '@';
 	}
 */
+
+void printaMenu()
+{
+	printf("=======================\n");
+	printf("> 1. Insere registro  <\n");
+	printf("> 2. Remove registro  <\n");
+	printf("> 3. Compacta         <\n");
+	printf("> Opcao: ");
+	
+}
 
 LIVRO* carregaInsercao() {
 	FILE* in = fopen("insere.bin", "rb");
@@ -137,15 +143,13 @@ int tamanhoRegistro(LIVRO reg) {
 	return 13 + strlen(reg.autor) + strlen(reg.titulo) + 4;
 }
 
-void removeRegistro() {
+void removeRegistro(char **dados) {
 	FILE* in = fopen("biblioteca.bin", "r+b");
 	if (in == NULL){
 		printf("Falha ao abrir o arquivo!\n");
 		printf("Nenhum registro inserido!\n");
 		return;
 	}
-	
-	char** dados = carregaRemocao();	//dps tem q mudar essa linha lá pra main e passar dados por referência, pq aí consome menos memorya
 	
 	int aux, tam_percorrido, header, i;
 	char* isbn;
@@ -186,8 +190,7 @@ void removeRegistro() {
 	return;
 }
 
-void insereRegistro() {
-	LIVRO* dados = carregaInsercao();
+void insereRegistro(LIVRO *dados) {
 	int a = 0; //numero de registros ja inseridos
 	int b = -1; //ponteiro pro primeiro registro deletado (-1 significa final da lista)
 
@@ -233,22 +236,30 @@ void insereRegistro() {
 	fread(&anterior, sizeof(int), 1, out);
 	prox = anterior;
 
+	int aux2;
 	while(prox != -1) {
 		fseek(out, prox, SEEK_SET);
 		fread(&tamanhoDisponivel, sizeof(int), 1, out);
+		printf("proximo: %d\n", prox);
+		printf("anterior: %d\n", anterior);
 		
 		if (tamanhoDisponivel >= tam) {
 			
 			fseek(out, 1, SEEK_CUR); //pulo o @
+			printf("ftell: %d\n", ftell(out));
 			fread(&prox, sizeof(int), 1, out); //leio o proximo
 
 			fseek(out, -(2 * sizeof(int) + 1), SEEK_CUR); //volto pra posicao do tamanho do registro
 			fwrite(&tam, sizeof(int), 1, out); //escreve tamanho
 			fwrite(buffer, sizeof(buffer), 1, out); //escreve registro
 
-			fseek(out, sizeof(int), SEEK_SET); //volta pro topo da pilha
-			fwrite(&prox, sizeof(int), 1, out); //sobrescrevo apontando pro proximo da "pilha"
-
+			rewind(out);
+			fseek(out, sizeof(int), SEEK_CUR); //volta pro topo da pilha
+			printf("prox: %d\n", prox);
+			
+			aux2 = prox;
+			fwrite(&aux2, sizeof(int), 1, out); //sobrescrevo apontando pro proximo da "pilha"
+			printf("Registro inserido!\n");
 			return;
 		} else {
 			anterior = prox; 
