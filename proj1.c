@@ -4,11 +4,20 @@
 
 typedef struct s_livro {
     char isbn[14];
-    char titulo[51];
-    char autor[51];
+    char titulo[50];
+    char autor[50];
     char ano[5];
 }LIVRO;
 
+void printaMenu()
+{
+	printf("=======================\n");
+	printf("> 1. Insere registro  <\n");
+	printf("> 2. Remove registro  <\n");
+	printf("> 3. Compacta         <\n");
+	printf("> Opcao: ");
+	
+}
 LIVRO* carregaInsercao();
 char** carregaRemocao();
 void printaRegistro(LIVRO *vet);
@@ -23,8 +32,6 @@ int main() {
 	/*
 	=============================
 	= Coisas pra fazer dps:		=
-	=>Fazer um menu bonito    	=
-	=>Tirar os prints de teste  =
 	=>Retornar o ponteiro dos ar=
 	= quivos de entrada, pq aí n=
 	= precisa ficar abrindo e fe=
@@ -37,8 +44,9 @@ int main() {
 	*/
 	
 	do {
-		printf("Opcao: ");
+		printaMenu();
 		scanf("%d", &opcao);
+		printf("=======================\n");
 
 		switch (opcao)
 		{
@@ -107,7 +115,7 @@ char** carregaRemocao() {
 
 	for(i = 0; i < 4; i++) {
 		fread(vet[i], sizeof(char), 14, in);
-		//printf("%s\n", vet[i]);
+		// printf("%s\n", vet[i]);
 	}
 
 	fclose(in);
@@ -115,6 +123,7 @@ char** carregaRemocao() {
 	return vet;
 }
 
+/*
 void printaRegistro(LIVRO *vet) {
 	int i;
 	
@@ -122,6 +131,7 @@ void printaRegistro(LIVRO *vet) {
 		printf("%s %s %s %s", vet[i].ano, vet[i].autor, vet[i].isbn, vet[i].titulo);
 	}
 }
+*/
 
 int tamanhoRegistro(LIVRO reg) {
 	return 13 + strlen(reg.autor) + strlen(reg.titulo) + 4;
@@ -144,25 +154,20 @@ void removeRegistro() {
 	for (i = 0; i < 4; i++){
 		fseek(in, sizeof(int), SEEK_SET);	//pula a quantidade de registros inseridos
 		fread(&header, sizeof(int), 1, in);	//le o endereço do próximo registro vazio
-		printf("i: %d\n", i);
 		while(fread(&aux, sizeof(int), 1, in)){	//le o tamanho de cada registro
-			printf("aux: %d\n", aux);
-			
-			printf("dados: %s#abc\n", dados[i]);
 			fread(isbn, sizeof(char), 13, in);
-			printf("isbn: %s#abc\n", isbn);
 			
 			if (strcmp(dados[i], isbn) == 0){
 				
 				fseek(in, -13, SEEK_CUR);
-				tam_percorrido = ftell(in);
+				tam_percorrido = ftell(in) - sizeof(int);
 				fwrite("@", sizeof(char), 1, in);
 				fwrite(&header, sizeof(int), 1, in);	//primeiro escreve o endereço pro próximo registro vazio
 				
 				fseek(in, sizeof(int), SEEK_SET);	//dps pula a quantidade de registros inseridos
 				fwrite(&tam_percorrido, sizeof(int), 1, in);	//e escreve o novo endereço pro primeiro elemento da lista
 				
-				printf("removido\n");
+				printf("Registro removido!\n");
 				fclose(in);	//tive q por esse fclose aq, pq ele só tava colocando o @ no biblioteca.bin dps q encerrava o programa
 				free(isbn);
 				
@@ -223,11 +228,40 @@ void insereRegistro() {
 		vai ser o q tiver tamanho igual
 	*/
 
+	fseek(out, sizeof(int), SEEK_SET);
+	int aux, tamanhoDisponivel, prox, anterior;
+	fread(&anterior, sizeof(int), 1, out);
+	prox = anterior;
+
+	while(prox != -1) {
+		fseek(out, prox, SEEK_SET);
+		fread(&tamanhoDisponivel, sizeof(int), 1, out);
+		
+		if (tamanhoDisponivel >= tam) {
+			
+			fseek(out, 1, SEEK_CUR); //pulo o @
+			fread(&prox, sizeof(int), 1, out); //leio o proximo
+
+			fseek(out, -(2 * sizeof(int) + 1), SEEK_CUR); //volto pra posicao do tamanho do registro
+			fwrite(&tam, sizeof(int), 1, out); //escreve tamanho
+			fwrite(buffer, sizeof(buffer), 1, out); //escreve registro
+
+			fseek(out, sizeof(int), SEEK_SET); //volta pro topo da pilha
+			fwrite(&prox, sizeof(int), 1, out); //sobrescrevo apontando pro proximo da "pilha"
+
+			return;
+		} else {
+			anterior = prox; 
+			fseek(out, 1, SEEK_CUR); //pulo o @
+			fread(&prox, sizeof(int), 1, out); //leio a proxima posicao
+		}
+	}
+
 	fseek(out, 0L, SEEK_END);
 	fwrite(&tam, sizeof(int), 1, out);
 	fwrite(buffer, sizeof(buffer), 1, out);
 	
-	printf("Registro inserido\n");
+	printf("Registro inserido!\n");
 	
 	fclose(out);
 }
@@ -259,9 +293,10 @@ void compactacao() {
 
 	char c;
 	char *buffer;
-	buffer = malloc(sizeof(char)*aux);	//char buffer[aux];
+
 	
 	while(fread(&aux, sizeof(int), 1, in)) {
+		buffer = malloc(sizeof(char)*aux);	//char buffer[aux];
 		if (fread(&c, sizeof(char), 1, in) && c != '@') {
 			fseek(in, -1, SEEK_CUR);	//essa linha tava como "fseek(in, -sizeof(char), SEEK_CUR);", só mudei o -sizeof(char) pq meu compilador deu warning aí
 			fread(buffer, sizeof(char), aux, in);
@@ -270,13 +305,15 @@ void compactacao() {
 		} else {
 			fseek(in, aux - 1, SEEK_CUR);
 		}
+		free(buffer);
 	}
-	
-	free(buffer);
+
 	fclose(in);
 	fclose(out);
 	remove("biblioteca.bin");
 	rename("temp.bin", "biblioteca.bin");
 
+	printf("Arquivo compactado!\n");
+	
 	return;
 }
